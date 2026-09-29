@@ -1,0 +1,55 @@
+version: 1
+pod: escalation
+analyst: anurag.gupta1@acko.tech
+description: Golden-answer evals for ACE (Customer Escalation Expert). Run on every PR touching SKILL.md or metrics.csv.
+
+evals:
+  - id: ace_001
+    question: "How many escalation tickets were raised in August 2026?"
+    period: "2026-08-01"
+    expected_value: 3309
+    tolerance_pct: 1
+    status: confirmed
+    sql: "COUNT(DISTINCT ticket_id) FROM cs_gold.datamart_escalation_enriched WHERE DATE(created_at) BETWEEN '2026-08-01' AND '2026-08-31'"
+
+  - id: ace_002
+    question: "What is the TAT SLA adherence rate for Auto in August 2026?"
+    period: "2026-08-01"
+    lob: Auto
+    expected_value:
+      lt_24h_count: 298
+      lt_24h_pct: 43.2
+      total_auto: 717
+    tolerance_pct: 2
+    status: confirmed
+    sql: "resolution_tat_bucket breakdown for escalation_lob='Auto'. Top bucket: '1. <24H' = 298. No dedicated sla_flag column — use resolution_tat_bucket as SLA proxy."
+    notes: "No tat_sla_flag column exists. resolution_tat_bucket is the SLA proxy. Update metrics.csv to reflect this."
+
+  - id: ace_003
+    question: "What % of August 2026 escalations were claim-related?"
+    period: "2026-08-01"
+    expected_value:
+      claim_pct: 100.0
+      claim_escalations: 3309
+    tolerance_pct: 0
+    status: confirmed
+    sql: "COUNTIF(total_claim_cnt > 0) / COUNT(DISTINCT ticket_id). All 3309 escalations had total_claim_cnt > 0."
+    notes: "100% claim-related for Aug 2026 — total_claim_cnt is the claim flag, not a dedicated claim_flag column."
+
+  - id: ace_004
+    question: "How many tickets were reopened in August 2026?"
+    period: "2026-08-01"
+    expected_value: 753
+    tolerance_pct: 1
+    status: confirmed
+    sql: "COUNTIF(reopened_at IS NOT NULL) WHERE DATE(created_at) BETWEEN '2026-08-01' AND '2026-08-31'"
+    notes: "Reopened flag derived from reopened_at IS NOT NULL — no reopened_flag column."
+
+  - id: ace_005
+    question: "How many tickets were disputed in August 2026?"
+    period: "2026-08-01"
+    expected_value: 550
+    tolerance_pct: 1
+    status: confirmed
+    sql: "COUNTIF(disputed_flag = TRUE). disputed_flag is BOOL type (not INT)."
+    notes: "Replacing esc_per_1k_claims eval — fact_claim_month join requires LOB mapping validation first. Added dispute count as confirmed eval."

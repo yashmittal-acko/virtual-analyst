@@ -1,0 +1,59 @@
+version: 1
+pod: fleetops_fora
+analyst: anupam.singh@acko.tech
+description: Golden-answer evals for FORA (Fleet Operations RSA CRM Analytics). Run on every PR touching SKILL.md or metrics.csv.
+
+evals:
+  - id: fora_001
+    question: "How many RSA tasks were scheduled in August 2026?"
+    period: "2026-08-01"
+    date_field: appointment_date
+    expected_value: 4078
+    tolerance_pct: 1
+    status: confirmed
+    sql: "COUNT(DISTINCT dispatch_id) WHERE level='Child' AND appointment_date BETWEEN '2026-08-01' AND '2026-08-31'"
+
+  - id: fora_002
+    question: "What was the task completion rate for August 2026?"
+    period: "2026-08-01"
+    date_field: appointment_date
+    expected_value:
+      completed_tasks: 2809
+      completion_pct: 68.9
+    tolerance_pct: 2
+    status: confirmed
+    sql: "COUNT(DISTINCT IF(dispatch_status='COMPLETED', dispatch_id, NULL)) / COUNT(DISTINCT dispatch_id). 2809 / 4078 = 68.9%."
+
+  - id: fora_003
+    question: "What was the external transfer % (inhouse eligible only) in August 2026?"
+    period: "2026-08-01"
+    date_field: appointment_date
+    expected_value: 45.2
+    tolerance_pct: 2
+    status: confirmed
+    sql: "SAFE_DIVIDE(COUNT(DISTINCT IF(serviceable_flag=1 AND dispatch_partner_type='EXTERNAL', dispatch_id, NULL)), COUNT(DISTINCT IF(serviceable_flag=1, dispatch_id, NULL))). serviceable_flag=1 default applied."
+    notes: "External transfer % is high (45.2%) — this is a known operational challenge. serviceable_flag is INT64."
+
+  - id: fora_004
+    question: "What was the TAT adherence rate for August 2026?"
+    period: "2026-08-01"
+    date_field: appointment_date
+    expected_value:
+      tat_on_time: 2017
+      tat_adherence_pct: 71.8
+    tolerance_pct: 2
+    status: confirmed
+    sql: "COUNTIF(tat_adherence_flag='On Time' AND dispatch_status='COMPLETED') / COUNT(DISTINCT IF(dispatch_status='COMPLETED', dispatch_id, NULL)). 2017 / 2809 = 71.8%."
+
+  - id: fora_005
+    question: "What are the top 3 reasons for external transfer in August 2026?"
+    period: "2026-08-01"
+    date_field: appointment_date
+    expected_value:
+      rank_1: {reason: "OUTSIDE_SHIFT_HOURS", tasks: 415}
+      rank_2: {reason: "TASK_DURATION_EXCEEDS_SLOT", tasks: 361}
+      rank_3: {reason: "WEEKLY_OFF", tasks: 316}
+    tolerance_pct: 5
+    status: confirmed
+    sql: "transfer_to_external_reason WHERE dispatch_partner_type='EXTERNAL' AND serviceable_flag=1 AND appointment_date Aug 2026. COUNT(DISTINCT dispatch_id)."
+    notes: "serviceable_flag=1 default applied. 'Reason Not Available' rank 5 with 186 tasks. Top 4: OUTSIDE_SHIFT_HOURS, TASK_DURATION_EXCEEDS_SLOT, WEEKLY_OFF, ON_LEAVE."

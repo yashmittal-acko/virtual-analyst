@@ -1,0 +1,48 @@
+# CODEOWNERS
+# GitHub enforces these on every PR — no self-merge.
+# IMPORTANT: Replace @username values below with actual GitHub usernames
+#            before pushing to GitHub. Email prefixes ≠ GitHub usernames.
+#
+# To find a team member's GitHub username: github.com/<username>
+# Current mapping to verify:
+#   yash.mittal@acko.tech       → confirm GitHub username
+#   yash.agnihotri@acko.tech    → confirm GitHub username
+#   parth.trivedi@acko.tech     → confirm GitHub username
+#   anurag.gupta1@acko.tech     → confirm GitHub username
+#   anupam.singh@acko.tech      → confirm GitHub username
+
+# ── Platform owner (approves shared infrastructure) ──
+*                               @yashmittal-acko
+
+# ── Shared infrastructure ──
+/shared/                        @yashmittal-acko
+/registry/                      @yashmittal-acko
+/access/                        @yashmittal-acko
+/build/                         @yashmittal-acko
+/.github/                       @yashmittal-acko
+/README.md                      @yashmittal-acko
+/CONTRIBUTING.md                @yashmittal-acko
+
+# ── Pod: ADSC (AVA) ──
+/skills/adsc/                   @yashmittal-acko
+
+# ── Cross-Pod Orchestrator ──
+/skills/orchestrator/           @yashmittal-acko
+
+# ── Meta-skill: Pod Builder ──
+/skills/pod_builder/            @yashmittal-acko
+
+# ── Pod: User Growth (GIVA) ──
+/skills/user_growth/            @yash-agnihotri-acko
+
+# ── Pod: Retail Travel (AVI) ──
+/skills/retail_travel/          @parth-trivedi-acko
+
+# ── Pod: Escalation (ACE) ──
+/skills/escalation/             @anurag-gupta-acko
+
+# ── Pod: Fleet Ops FIA ──
+/skills/fleetops_fia/           @anupam-singh-acko
+
+# ── Pod: Fleet Ops FORA ──
+/skills/fleetops_fora/          @anupam-singh-acko

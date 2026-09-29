@@ -1,0 +1,220 @@
+# registry/metric_taxonomy.yaml
+#
+# Declares whether same-concept metrics across pods are comparable.
+# The orchestrator reads this before answering any cross-pod question.
+# The router blocks aggregations that are marked cross_pod_comparable: false.
+#
+# Rule: when in doubt, mark false. A wrong aggregation is worse than a
+# refused one. The user can always ask each pod separately.
+
+version: 1
+
+concepts:
+
+  # ── VOLUME / TRANSACTIONS ─────────────────────────────────────────────────
+
+  - concept: transaction_volume
+    label: "Orders / Policies Sold / Tasks"
+    cross_pod_comparable: false
+    reason: >
+      Each pod's primary transaction is a categorically different entity.
+      ADSC counts repair jobs (vehicles serviced). Retail Travel counts
+      insurance policies sold. FORA counts RSA dispatch tasks. FIA counts
+      ServiceOS completed tasks. These cannot be summed or ranked together.
+    cross_pod_instruction: >
+      Present each pod's number separately with its entity label.
+      NEVER aggregate. If the user asks for a single total, ask them
+      which pod they mean. If they insist on a combined number, explain
+      why it is not meaningful and what the individual numbers are.
+    pod_implementations:
+      adsc:
+        metric_name: valid_orders
+        entity: workshop repair job
+        table: adsc_gold.fact_adsc_orders
+        definition: "COUNT(DISTINCT id) WHERE status <> 'CANCELLED'"
+      retail_travel:
+        metric_name: policy_count
+        entity: travel insurance policy
+        table: retail_travel_gold.datamart_retail_travel_policy_dashboard
+        definition: "COUNT(DISTINCT policyid)"
+      fleetops_fora:
+        metric_name: completed_tasks
+        entity: RSA roadside assistance dispatch
+        table: fleetops_gold.datamart_rsa_crm_report
+        definition: "COUNT(DISTINCT dispatch_id) WHERE dispatch_status='COMPLETED'"
+      fleetops_fia:
+        metric_name: completed_tasks
+        entity: ServiceOS field engineer task slot
+        table: fleetops_gold.datamart_fops_360
+        definition: "COUNT(DISTINCT uni_key) WHERE final_slot_flag=1 AND final_status_corrected='DONE'"
+
+  # ── REVENUE ───────────────────────────────────────────────────────────────
+
+  - concept: revenue
+    label: "Revenue / GWP / Collected Amount"
+    cross_pod_comparable: false
+    reason: >
+      Revenue recognition timing, currency basis, and definition differ
+      fundamentally by pod. ADSC revenue is cash collected for repair services.
+      Retail Travel GWP is Gross Written Premium at policy issuance. These
+      measure different economic events and cannot be meaningfully combined.
+    cross_pod_instruction: >
+      Present each pod's revenue metric separately with its definition.
+      Never sum across pods without explicit analyst confirmation that
+      the comparison is intentional and the differences are understood.
+    pod_implementations:
+      adsc:
+        metric_name: revenue
+        label: "Collected revenue from repair jobs"
+        table: adsc_gold.fact_adsc_orders + adsc_gold.fact_adsc_payments
+      retail_travel:
+        metric_name: gwp
+        label: "Gross Written Premium"
+        table: retail_travel_gold.datamart_retail_travel_policy_dashboard
+
+  # ── CUSTOMER SATISFACTION ─────────────────────────────────────────────────
+
+  - concept: customer_satisfaction
+    label: "NPS / CSAT"
+    cross_pod_comparable: true
+    comparable_with_caveats: true
+    caveats:
+      - "Survey methodology may differ across pods — confirm before publishing a cross-pod comparison"
+      - "NPS (Promoter/Detractor formula) and CSAT (1-5 scale) are different instruments — do not average them"
+      - "Population differs: ADSC NPS is sampled from workshop customers; ACE CSAT is from resolved escalation tickets"
+      - "Date basis differs by pod — confirm alignment before comparing"
+    cross_pod_instruction: >
+      Present side by side with clear labels. Flag the caveats above.
+      Never compute a single blended NPS across pods without explicit
+      confirmation that the populations and methods are aligned.
+    pod_implementations:
+      adsc:
+        metric_name: nps_score
+        instrument: NPS
+        formula: "(promoters - detractors) / responses * 100"
+        date_basis: fact_adsc_nps.created_date
+        population: "Customers who completed a workshop repair job"
+      escalation:
+        metric_name: csat_score
+        instrument: CSAT
+        scale: "1–5"
+        population: "Customers whose escalation ticket was resolved"
+        note: "CSAT ≠ NPS. Different scale, different question. Side-by-side display only with explicit label."
+
+  # ── CONVERSION / FUNNEL ───────────────────────────────────────────────────
+
+  - concept: funnel_conversion
+    label: "Visit-to-Quote, Quote-to-Sale, Appointment-to-Order"
+    cross_pod_comparable: true
+    comparable_with_caveats: true
+    caveats:
+      - "Funnel stage definitions differ — ADSC uses Appointment→Order, Retail Travel uses Visit→Entry→Quote→Sale"
+      - "Attribution windows differ — Retail Travel has a 5-day attribution window; ADSC has none"
+      - "Denominator populations are different products and audiences"
+    cross_pod_instruction: >
+      Compare only equivalent stages (e.g. intent-to-purchase → completed-purchase
+      for both). Flag that stage definitions and attribution differ. Never
+      present raw rate numbers as directly equivalent without a footnote.
+    pod_implementations:
+      adsc:
+        metric_name: appt_to_order_pct
+        stages: "Appointment → Valid Order"
+        denominator: "Valid appointments (5-status filter)"
+      retail_travel:
+        metric_name: q2s_conversion
+        stages: "Quote → Sale"
+        denominator: "Quotes (raw or 5-day attributed — must specify)"
+
+  # ── TAT / RESOLUTION TIME ─────────────────────────────────────────────────
+
+  - concept: resolution_time
+    label: "TAT / Time to Complete / Time to Resolve"
+    cross_pod_comparable: true
+    comparable_with_caveats: true
+    caveats:
+      - "Start and end events differ by pod — compare only with clear labels"
+      - "FORA TAT = dispatch creation to task completion. ACE TAT = ticket creation to resolution. FIA TAT = appointment to agent reaching customer. These measure different operational processes."
+      - "Units confirmed as minutes (FIA/FORA) or hours (ACE) — convert before presenting together"
+    cross_pod_instruction: >
+      Display with explicit start→end event labels per pod. Convert units
+      to the same basis. Never present as a single 'TAT' benchmark
+      without clarifying which process each number measures.
+    pod_implementations:
+      fleetops_fora:
+        metric_name: tat_adherence_pct
+        start_event: appointment_datetime
+        end_event: reach_customer_ts
+        unit: minutes
+      fleetops_fia:
+        metric_name: tat_breach_pct
+        start_event: schedule_start_time
+        end_event: reach_customer_ts
+        unit: minutes
+      escalation:
+        metric_name: tat_adherence_pct
+        start_event: ticket created_at
+        end_event: resolution (status closed)
+        unit: hours
+
+  # ── REPEAT / RETENTION ────────────────────────────────────────────────────
+
+  - concept: retention
+    label: "Repeat Rate / Cohort Retention / MAU Lifecycle"
+    cross_pod_comparable: false
+    reason: >
+      Retention means fundamentally different things per pod.
+      ADSC retention = customer returning for another workshop visit (M6/M9/M12).
+      GIVA retention = user remaining active in the app (lifecycle buckets).
+      These measure different product relationships and cannot be compared.
+    cross_pod_instruction: >
+      Always name the product when presenting a retention number.
+      Never use the word 'retention' alone in a cross-pod context.
+    pod_implementations:
+      adsc:
+        metric_name: repeat_rate_m6
+        definition: "% of first-time workshop customers returning within 6 months"
+      user_growth:
+        metric_name: mau
+        definition: "Monthly active app users — lifecycle bucket breakdown"
+
+  # ── ESCALATION / QUALITY ──────────────────────────────────────────────────
+
+  - concept: complaint_volume
+    label: "Escalations / Complaints / Grievances"
+    cross_pod_comparable: true
+    comparable_with_caveats: true
+    caveats:
+      - "ACE covers ALL LOBs including ADSC, Auto, Travel, Health — filter by escalation_lob before comparing to avoid double-counting"
+      - "Escalation rate (per 1K policies or claims) is more meaningful than raw count across LOBs of different sizes"
+    cross_pod_instruction: >
+      For cross-LOB escalation comparisons, always normalize: use
+      escalation_per_1k_claims or escalation_per_1k_policies,
+      never raw counts alone. Filter escalation_lob before comparing
+      to a pod's own volume metric to avoid double-counting.
+    pod_implementations:
+      escalation:
+        metric_name: escalation_volume
+        covers: "All LOBs via escalation_lob filter"
+        normalized_metric: escalation_per_1k_claims
+
+  # ── FIELD OPERATIONS (FIA vs FORA) ───────────────────────────────────────
+
+  - concept: field_task_completion
+    label: "Task Completion Rate"
+    cross_pod_comparable: false
+    reason: >
+      FIA and FORA both report 'task completion' but measure completely
+      different operational populations.
+      FIA = ServiceOS ADSC workshop pickup/drop field tasks.
+      FORA = RSA roadside assistance dispatches (towing, jump-start, flat tyre).
+      Same word. Different business. Do not combine.
+    cross_pod_instruction: >
+      Always prefix with pod name: 'ADSC field task completion (FIA)'
+      vs 'RSA task completion (FORA)'. Never present a blended rate.
+    pod_implementations:
+      fleetops_fia:
+        metric_name: completed_tasks
+        operation: ADSC workshop vehicle pickup and drop
+      fleetops_fora:
+        metric_name: completion_pct
+        operation: RSA roadside assistance (towing, RSR, custody)

@@ -1,0 +1,91 @@
+# registry/pipeline_health.yaml
+#
+# Tracks expected data freshness for every table used across pods.
+# Pod analysts check this before answering time-sensitive questions.
+# The daily CI schedule in evals-ci.yml can be extended to ping these
+# and flag stale tables as a GitHub issue automatically.
+#
+# freshness_sla: how fresh the data should be (T-1 = yesterday)
+# check_query: a lightweight query to get the max date in the table
+# alert_if_stale_days: raise a flag if data is older than this
+
+version: 1
+
+tables:
+
+  - table: storm-wall-185017.adsc_gold.fact_adsc_orders
+    pod: adsc
+    freshness_sla: T-1
+    check_query: "SELECT MAX(created_date) AS latest FROM `storm-wall-185017.adsc_gold.fact_adsc_orders`"
+    alert_if_stale_days: 2
+    owner: yash.mittal@acko.tech
+
+  - table: storm-wall-185017.adsc_gold.fact_adsc_nps
+    pod: adsc
+    freshness_sla: T-1
+    check_query: "SELECT MAX(created_date) AS latest FROM `storm-wall-185017.adsc_gold.fact_adsc_nps`"
+    alert_if_stale_days: 2
+    owner: yash.mittal@acko.tech
+
+  - table: storm-wall-185017.adsc_gold.adsc_repeat_view_orders_base
+    pod: adsc
+    freshness_sla: T-1
+    check_query: "SELECT MAX(order_month) AS latest FROM `storm-wall-185017.adsc_gold.adsc_repeat_view_orders_base`"
+    alert_if_stale_days: 2
+    owner: yash.mittal@acko.tech
+
+  - table: storm-wall-185017.central_gold.user_growth_master_agg
+    pod: user_growth
+    freshness_sla: T-1
+    check_query: "SELECT MAX(month) AS latest FROM `storm-wall-185017.central_gold.user_growth_master_agg`"
+    alert_if_stale_days: 2
+    owner: yash.agnihotri@acko.tech
+
+  - table: storm-wall-185017.retail_travel_gold.datamart_retail_travel_l0_funnel_dashboard
+    pod: retail_travel
+    freshness_sla: T-1
+    check_query: "SELECT MAX(date) AS latest FROM `storm-wall-185017.retail_travel_gold.datamart_retail_travel_l0_funnel_dashboard`"
+    alert_if_stale_days: 2
+    owner: parth.trivedi@acko.tech
+
+  - table: storm-wall-185017.retail_travel_gold.datamart_retail_travel_policy_dashboard
+    pod: retail_travel
+    freshness_sla: T-2
+    check_query: "SELECT MAX(purchase_date) AS latest FROM `storm-wall-185017.retail_travel_gold.datamart_retail_travel_policy_dashboard`"
+    alert_if_stale_days: 3
+    owner: parth.trivedi@acko.tech
+
+  - table: storm-wall-185017.cs_gold.datamart_escalation_enriched
+    pod: escalation
+    freshness_sla: T-1
+    check_query: "SELECT DATE(MAX(created_at)) AS latest FROM `storm-wall-185017.cs_gold.datamart_escalation_enriched`"
+    alert_if_stale_days: 2
+    owner: anurag.gupta1@acko.tech
+
+  - table: storm-wall-185017.fleetops_gold.datamart_fops_360
+    pod: fleetops_fia
+    freshness_sla: T-1
+    check_query: "SELECT MAX(task_slot_date) AS latest FROM `storm-wall-185017.fleetops_gold.datamart_fops_360`"
+    alert_if_stale_days: 2
+    owner: anupam.singh@acko.tech
+
+  - table: storm-wall-185017.fleetops_gold.datamart_fops_slot_availability_customer_day
+    pod: fleetops_fia
+    freshness_sla: T-1
+    check_query: "SELECT MAX(availability_date) AS latest FROM `storm-wall-185017.fleetops_gold.datamart_fops_slot_availability_customer_day`"
+    alert_if_stale_days: 2
+    owner: anupam.singh@acko.tech
+
+  - table: storm-wall-185017.fleetops_gold.datamart_serviceos_promise_fe_metrics_tableau
+    pod: fleetops_fia
+    freshness_sla: T-1
+    check_query: "SELECT MAX(promise_date) AS latest FROM `storm-wall-185017.fleetops_gold.datamart_serviceos_promise_fe_metrics_tableau`"
+    alert_if_stale_days: 2
+    owner: anupam.singh@acko.tech
+
+  - table: storm-wall-185017.fleetops_gold.datamart_rsa_crm_report
+    pod: fleetops_fora
+    freshness_sla: T-1
+    check_query: "SELECT MAX(appointment_date) AS latest FROM `storm-wall-185017.fleetops_gold.datamart_rsa_crm_report`"
+    alert_if_stale_days: 2
+    owner: anupam.singh@acko.tech

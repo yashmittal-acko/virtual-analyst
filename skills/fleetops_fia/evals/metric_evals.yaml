@@ -1,0 +1,49 @@
+version: 1
+pod: fleetops_fia
+analyst: anupam.singh@acko.tech
+description: Golden-answer evals for FIA (Fleet Operations Intelligence Assistant). Run on every PR touching SKILL.md or metrics.csv.
+
+evals:
+  - id: fia_001
+    question: "How many tasks were completed in August 2026?"
+    period: "2026-08-01"
+    expected_value: 24745
+    tolerance_pct: 1
+    status: confirmed
+    sql: "COUNT(DISTINCT uni_key) FROM fleetops_gold.datamart_fops_360 WHERE task_slot_date BETWEEN '2026-08-01' AND '2026-08-31' AND final_slot_flag=1 AND final_status_corrected='DONE'"
+
+  - id: fia_002
+    question: "What was the TAT breach % in August 2026?"
+    period: "2026-08-01"
+    expected_value: 9.6
+    tolerance_pct: 2
+    status: confirmed
+    sql: "COUNTIF(on_time_reach_flag='Off Time') / COUNT(DISTINCT uni_key). 2386 breach / 24745 completed = 9.6%."
+    notes: "Denominator = completed final slots. on_time_reach_flag is STRING ('Off Time' / 'On Time')."
+
+  - id: fia_003
+    question: "What % of breach tasks in August 2026 were due to late start?"
+    period: "2026-08-01"
+    expected_value: 38.0
+    tolerance_pct: 3
+    status: confirmed
+    sql: "COUNTIF(started_on_time_flag=0 AND start_trip_ts IS NOT NULL AND on_time_reach_flag='Off Time') / COUNTIF(on_time_reach_flag='Off Time'). 906/2386 = 38.0%."
+    notes: "started_on_time_flag is INT64 (0/1). start_trip_ts is DATETIME. Broader late-start rate vs all tasks = 8.7%."
+
+  - id: fia_004
+    question: "What was the slot served % in August 2026?"
+    period: "2026-08-01"
+    expected_value: 93.2
+    tolerance_pct: 2
+    status: confirmed
+    sql: "COUNTIF(served_customer_flag=1) / COUNT(DISTINCT availability_customer_day_id). 42580 / 45670 = 93.2%."
+    notes: "From datamart_fops_slot_availability_customer_day. Column is served_customer_flag (not served_flag). No-slots rate = 6.9% (3150 requests)."
+
+  - id: fia_005
+    question: "What was the average customer wait time in August 2026?"
+    period: "2026-08-01"
+    expected_value: 9.5
+    tolerance_pct: 5
+    status: confirmed
+    sql: "AVG(wait_time_at_customer_location_minutes) WHERE task_slot_date BETWEEN '2026-08-01' AND '2026-08-31' AND wait_time_at_customer_location_minutes IS NOT NULL. 18360 eligible slots."
+    notes: "Column is wait_time_at_customer_location_minutes (not customer_wait_time_minutes). Natural eligibility — not restricted to DONE. Update metrics.csv column name."

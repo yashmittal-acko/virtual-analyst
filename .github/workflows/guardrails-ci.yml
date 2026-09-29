@@ -1,0 +1,106 @@
+name: Guardrail CI
+
+on:
+  pull_request:
+    paths:
+      - "skills/*/SKILL.md"
+      - "shared/GUARDRAILS.md"
+      - "build/inject_guardrails.py"
+  push:
+    branches: [main]
+
+jobs:
+  guardrail-check:
+    name: Verify guardrails injected in all SKILL.md files
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify guardrail hash in all skill files
+        run: |
+          python3 build/inject_guardrails.py --verify
+        # Exits 1 if any SKILL.md is missing or has a stale guardrail hash.
+        # This means: edit GUARDRAILS.md → run inject_guardrails.py → commit all SKILL.md changes → PR passes.
+        # Any SKILL.md committed without the inject step will be caught here.
+
+      - name: Check no SKILL.md was edited directly inside the guardrail block
+        run: |
+          # Guard against someone editing the content between GUARDRAILS:START and GUARDRAILS:END
+          # while leaving the hash intact from an old run. Re-inject and compare.
+          python3 build/inject_guardrails.py --dry-run 2>&1 | grep -q "\[dry-run\]" && {
+            echo "ERROR: One or more SKILL.md files have stale guardrail content (dry-run detected changes)."
+            echo "Run: python3 build/inject_guardrails.py"
+            echo "Then commit the updated SKILL.md files."
+            exit 1
+          } || echo "All guardrail blocks are current."
+
+  pii-scan:
+    name: Scan SQL patterns for raw PII columns
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for raw phone / email in patterns.sql
+        run: |
+          FAIL=0
+          for f in skills/*/analyses/patterns.sql; do
+            # Flag any SELECT that pulls a raw phone or email column
+            if grep -nP "SELECT[^;]*\b(phone(?!_hash)|email(?!_hash|_domain)|aadhaar|pan_number)\b" "$f"; then
+              echo "PII leak in $f — raw phone/email/aadhaar/pan in SELECT"
+              FAIL=1
+            fi
+          done
+          [ $FAIL -eq 0 ] || exit 1
+
+      - name: Scan for SELECT * in patterns
+        run: |
+          FAIL=0
+          for f in skills/*/analyses/patterns.sql; do
+            if grep -n "SELECT \*" "$f"; then
+              echo "Unsafe SELECT * in $f"
+              FAIL=1
+            fi
+          done
+          [ $FAIL -eq 0 ] || exit 1
+
+      - name: Scan for queries without date filters
+        run: |
+          # Warn (not fail) on any SQL block that lacks a WHERE clause with a date keyword
+          for f in skills/*/analyses/patterns.sql; do
+            python3 - <<'PYEOF'
+          import re, sys
+          content = open("$f").read()
+          # Split on double-newline to get individual SQL blocks
+          blocks = re.split(r'\n{2,}', content)
+          for block in blocks:
+              if re.search(r'\bSELECT\b', block, re.I) and not re.search(r'\bWHERE\b', block, re.I):
+                  if not block.strip().startswith('--'):
+                      print(f"WARNING: SQL block in $f has no WHERE clause:\n{block[:120]}")
+          PYEOF
+          done
+
+  token-efficiency-lint:
+    name: Lint SKILL.md for token bloat patterns
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Flag banned opener phrases in skill files
+        run: |
+          FAIL=0
+          BANNED="Great question\|Sure!\|Absolutely!\|Of course!\|No problem!\|Happy to help"
+          for f in skills/*/SKILL.md; do
+            if grep -n "$BANNED" "$f"; then
+              echo "Token-bloat phrase found in $f"
+              FAIL=1
+            fi
+          done
+          [ $FAIL -eq 0 ] || exit 1

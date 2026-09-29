@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/*.egg
+
+# Secrets — never commit
+.env.local
+service_account*.json
+*_key.json
+credentials*.json
+*.pem
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Editor
+.vscode/
+.idea/
+*.code-workspace
+
+# CI artefacts
+.pytest_cache/
+coverage.xml
+*.log
+eval_results/
+
+# Skill build artefacts
+*.skill.bak
+tmp/

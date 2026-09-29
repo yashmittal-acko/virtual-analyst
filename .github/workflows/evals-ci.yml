@@ -1,0 +1,150 @@
+name: Eval CI
+
+on:
+  pull_request:
+    paths:
+      - "skills/*/evals/metric_evals.yaml"
+      - "skills/*/SKILL.md"
+      - "skills/*/semantic/metrics.csv"
+      - "skills/*/analyses/patterns.sql"
+      - "build/run_evals.py"
+  schedule:
+    # Run daily at 07:00 IST (01:30 UTC) to catch pipeline regressions
+    - cron: "30 1 * * *"
+  workflow_dispatch:
+    inputs:
+      pod:
+        description: "Pod to run (leave blank for all)"
+        required: false
+
+jobs:
+  run-evals:
+    name: Run golden-answer evals against BigQuery
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # for Workload Identity Federation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install google-cloud-bigquery pyyaml
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+          # Service account needs: BigQuery Data Viewer + BigQuery Job User
+          # on project storm-wall-185017
+
+      - name: Run evals (all pods)
+        if: ${{ !inputs.pod }}
+        run: |
+          python3 build/run_evals.py --output eval_results.json
+
+      - name: Run evals (single pod)
+        if: ${{ inputs.pod }}
+        run: |
+          python3 build/run_evals.py --pod ${{ inputs.pod }} --output eval_results.json
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: eval_results.json
+          retention-days: 30
+
+      - name: Post summary to PR
+        if: github.event_name == 'pull_request' && always()
+        run: |
+          python3 - << 'PYEOF'
+          import json, os
+          results = json.loads(open("eval_results.json").read())
+          passed  = sum(1 for r in results if r["status"] == "PASS")
+          failed  = sum(1 for r in results if r["status"] == "FAIL")
+          errors  = sum(1 for r in results if r["status"] == "error")
+          skipped = sum(1 for r in results if r["status"] == "skipped")
+          lines = [
+            "## Eval CI Results",
+            f"✓ {passed} passed   ✗ {failed} failed   ⚠ {errors} errors   — {skipped} skipped",
+            "",
+            "| ID | Pod | Status | Detail |",
+            "|---|---|---|---|",
+          ]
+          for r in results:
+            icon = {"PASS":"✓","FAIL":"✗","error":"⚠","skipped":"—"}.get(r["status"], "?")
+            lines.append(f"| {r['id']} | {r['pod']} | {icon} {r['status']} | {r.get('detail','')} |")
+          print("\n".join(lines))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "w") as f:
+              f.write("\n".join(lines))
+          PYEOF
+
+  validate-schema:
+    name: Validate table/column references against BigQuery
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install google-cloud-bigquery pyyaml
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Validate schema + access grants
+        run: python3 build/validate_schema.py
+
+  freshness-check:
+    name: Check eval and pipeline freshness
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install google-cloud-bigquery pyyaml
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Check eval freshness (warn only on PR, fail on scheduled)
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            python3 build/check_eval_freshness.py
+          else
+            python3 build/check_eval_freshness.py --warn-only
+          fi

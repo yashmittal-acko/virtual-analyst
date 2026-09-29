@@ -1,0 +1,56 @@
+# shared/QUERY_COST_LIMITS.yaml
+#
+# BigQuery cost governance for all Virtual Analyst pods.
+# These limits are enforced at two layers:
+#   1. In the guardrails (GUARDRAILS.md) — analyst-facing soft limits with explanations
+#   2. In run_evals.py and validate_schema.py — hard dryRun byte checks before execution
+#
+# BigQuery pricing reference (as of 2026): ~$6.25 per TB processed on-demand.
+# Approximate INR: ~₹520 per TB.
+#
+# Governance principle: a single chat query should never cost more than ₹50.
+# That caps us at ~96 GB per query. Limits below are set conservatively.
+
+version: 1
+
+global:
+  max_bytes_per_query_gb: 50          # Hard limit — queries above this require scheduled job
+  warn_bytes_per_query_gb: 10         # Warn the analyst before running
+  max_rows_returned_chat: 1000        # Max rows to stream through chat interface
+  max_date_range_months: 12           # Max time window for any ad-hoc chat query
+  cost_per_tb_inr: 520                # For cost estimates shown to users
+
+pods:
+  adsc:
+    max_bytes_per_query_gb: 5
+    expected_bytes_typical_query_gb: 0.1
+    notes: "adsc_gold tables are small — typical order/NPS queries are <100MB. Flag anything >5GB as likely a full-scan error."
+
+  user_growth:
+    max_bytes_per_query_gb: 50
+    expected_bytes_typical_query_gb: 5
+    notes: "user_growth_master_agg is wide (~55MB per month queried). MoM 12-month scan ~660MB. 5-year scan approaches 50GB limit — block."
+
+  retail_travel:
+    max_bytes_per_query_gb: 10
+    expected_bytes_typical_query_gb: 0.5
+    notes: "Funnel dashboard is partitioned by date — always filter the date partition. Unpartitioned policy table is small. Jarvis claim tables can be large — add LIMIT for exploratory work."
+
+  escalation:
+    max_bytes_per_query_gb: 5
+    expected_bytes_typical_query_gb: 0.1
+    notes: "datamart_escalation_enriched is ~227 columns but manageable volume. ticket_timeline_json can be large — select specific fields only."
+
+  fleetops_fia:
+    max_bytes_per_query_gb: 20
+    expected_bytes_typical_query_gb: 2
+    notes: "datamart_fops_360 is the largest table in the fleet estate. Always filter task_slot_date. Promise table is smaller. Slot availability table is medium."
+
+  fleetops_fora:
+    max_bytes_per_query_gb: 10
+    expected_bytes_typical_query_gb: 1
+    notes: "datamart_rsa_crm_report — always filter appointment_date AND level='Child'. Without level filter, parent rows inflate the scan."
+
+# Cost estimate display template (used in guardrail responses)
+# "This query will scan approximately {X} GB (~₹{Y}). Proceed?"
+# Show when estimated scan > warn_bytes_per_query_gb

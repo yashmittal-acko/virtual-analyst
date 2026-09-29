@@ -1,0 +1,54 @@
+version: 1
+pod: adsc
+analyst: yash.mittal@acko.tech
+description: Golden-answer evals for AVA (ADSC Virtual Analyst). Run on every PR that touches SKILL.md or metrics.csv.
+
+evals:
+  - id: adsc_001
+    question: "What were the valid orders for August 2026?"
+    period: "2026-08-01"
+    expected_value: 2366
+    tolerance_pct: 2
+    status: confirmed
+    sql: "COUNT(DISTINCT id) FROM adsc_gold.fact_adsc_orders WHERE created_date BETWEEN '2026-08-01' AND '2026-08-31' AND UPPER(TRIM(status)) <> 'CANCELLED'"
+    notes: "Valid = not CANCELLED. No payment_status column — status is the only filter."
+
+  - id: adsc_002
+    question: "What was the NPS score for August 2026?"
+    period: "2026-08-01"
+    expected_value: 34.8
+    tolerance_pct: 0
+    status: confirmed
+    sql: "Promoters(nps_score>=9) - Detractors(nps_score<=6) / total responses. created_date basis. 767 responses, 481 promoters, 214 detractors."
+    notes: "NPS date basis = fact_adsc_nps.created_date for August. No payment_date join required."
+
+  - id: adsc_003
+    question: "What is the appointment-to-order conversion rate for August 2026?"
+    period: "2026-08-01"
+    expected_value: 80.5
+    tolerance_pct: 2
+    status: confirmed
+    sql: "Converted valid appointments / total valid appointments. 2384 converted / 2962 valid appts. Valid appts filter: status IN ('COMPLETED','PAYMENT_CONFIRMED','PICKUP_ADDRESS','RESCHEDULED','SCHEDULED')."
+    notes: "Appointment date basis. Order filter: status <> 'CANCELLED'."
+
+  - id: adsc_004
+    question: "What is the M6 repeat rate for the October 2025 cohort?"
+    period: "2025-10-01"
+    expected_value: 16.0
+    tolerance_pct: 2
+    status: confirmed
+    sql: "From adsc_repeat_view_orders_base. Cohort = new users (user_type='1. New user') with first_order_month=2025-10-01. Returned M6 = repeat order within 6 months. Cohort size 1573, returned 252."
+    notes: "Uses adsc_repeat_view_orders_base, not fact_adsc_orders directly."
+
+  - id: adsc_005
+    question: "What is the new vs repeat user split for valid orders in August 2026?"
+    period: "2026-08-01"
+    expected_value:
+      new_user: 1305
+      repeat_same_month: 198
+      repeat_user: 863
+      total: 2366
+    tolerance_pct: 2
+    status: confirmed
+    sql: "From adsc_repeat_view_orders_base WHERE order_month='2026-08-01'. Groups: '1. New user', '2. Repeat same month', '3. Repeat user'."
+    notes: "New = 55.2%, Repeat same month = 8.4%, Repeat user = 36.5%."

@@ -1,0 +1,168 @@
+version: 2
+description: >
+  Table-based routing. Claude reasons about what entity the question
+  is about, maps it to the correct table, and routes to that table's pod.
+  No keyword matching. No trigger terms.
+  When entity is ambiguous, Claude asks one plain-English question in
+  business language before routing. Never guesses, never defaults.
+
+table_to_pod:
+
+  - table: storm-wall-185017.adsc_gold.fact_adsc_orders
+    pod: adsc
+    skill: ava
+    entity: "Workshop repair job or order — vehicle serviced at ADSC workshop"
+    example_questions:
+      - "How many orders in August?"
+      - "What was the valid order count?"
+      - "ADSC revenue last month?"
+      - "Appointment to order conversion?"
+
+  - table: storm-wall-185017.adsc_gold.fact_adsc_nps
+    pod: adsc
+    skill: ava
+    entity: "Workshop NPS or customer satisfaction score"
+    example_questions:
+      - "What was NPS for August?"
+      - "Which garage has the best NPS?"
+      - "NPS theme breakdown?"
+
+  - table: storm-wall-185017.adsc_gold.fact_adsc_appointments
+    pod: adsc
+    skill: ava
+    entity: "Workshop appointment booked by customer"
+    example_questions:
+      - "How many appointments in August?"
+      - "Appointment conversion rate?"
+
+  - table: storm-wall-185017.adsc_gold.adsc_repeat_view_orders_base
+    pod: adsc
+    skill: ava
+    entity: "Workshop customer repeat behaviour and cohort retention"
+    example_questions:
+      - "What is the M6 repeat rate?"
+      - "New vs repeat customer split?"
+
+  - table: storm-wall-185017.fleetops_gold.datamart_fops_360
+    pod: fleetops_fia
+    skill: fia
+    entity: "ServiceOS field engineer task — vehicle pickup, vehicle drop, agent completing a job slot"
+    example_questions:
+      - "How many pickups completed in August?"
+      - "How many drops completed at ADSC?"
+      - "TAT breach rate for field agents?"
+      - "Agent slot availability?"
+      - "How many tasks completed?"
+      - "Late start rate?"
+      - "Customer wait time?"
+
+  - table: storm-wall-185017.fleetops_gold.datamart_fops_slot_availability_customer_day
+    pod: fleetops_fia
+    skill: fia
+    entity: "Customer slot availability — whether a customer was offered a service slot"
+    example_questions:
+      - "What % of customers got a slot?"
+      - "No-slot rate in August?"
+      - "Slot served percentage?"
+
+  - table: storm-wall-185017.fleetops_gold.datamart_serviceos_promise_fe_metrics_tableau
+    pod: fleetops_fia
+    skill: fia
+    entity: "Field engineer Promise and FE score metrics"
+    example_questions:
+      - "What is the FE score?"
+      - "Promise success rate?"
+      - "Start adherence for field engineers?"
+
+  - table: storm-wall-185017.fleetops_gold.datamart_rsa_crm_report
+    pod: fleetops_fora
+    skill: fora
+    entity: "RSA roadside assistance dispatch — towing, jump start, flat tyre, custody"
+    example_questions:
+      - "How many RSA tasks in August?"
+      - "RSA completion rate?"
+      - "External transfer % for RSA?"
+      - "TAT adherence for roadside?"
+      - "Why did RSA tasks go external?"
+
+  - table: storm-wall-185017.cs_gold.datamart_escalation_enriched
+    pod: escalation
+    skill: ace
+    entity: "Customer escalation or grievance ticket"
+    example_questions:
+      - "How many escalations in August?"
+      - "What is the resolution TAT?"
+      - "Claim vs non-claim escalation split?"
+      - "Reopened tickets last month?"
+      - "IRDAI exposure?"
+
+  - table: storm-wall-185017.central_gold.user_growth_master_agg
+    pod: user_growth
+    skill: giva
+    entity: "D2C app user — MAU, reachability, lifecycle, cross-sell, LOB penetration"
+    example_questions:
+      - "How many reachable users?"
+      - "What was MAU in August?"
+      - "Health to life cross-sell rate?"
+      - "Car-only reachable customer pool?"
+      - "How many users did challan success?"
+
+  - table: storm-wall-185017.retail_travel_gold.datamart_retail_travel_policy_dashboard
+    pod: retail_travel
+    skill: avi
+    entity: "Travel insurance policy — sold, GWP, ATS, members, claims"
+    example_questions:
+      - "How many travel policies sold?"
+      - "Travel GWP for August?"
+      - "Average ticket size for travel?"
+
+  - table: storm-wall-185017.retail_travel_gold.datamart_retail_travel_l0_funnel_dashboard
+    pod: retail_travel
+    skill: avi
+    entity: "Travel insurance funnel — visits, entries, quotes, sales, conversion"
+    example_questions:
+      - "Travel V2S conversion rate?"
+      - "How many travel quotes in August?"
+      - "Q2S conversion for travel?"
+
+ambiguous_pairs:
+  - description: "ADSC workshop job vs ADSC field pickup/drop task"
+    disambiguation_question: >
+      Are you asking about repair jobs completed at the workshop (orders, revenue, NPS)
+      or vehicle pickup/drop tasks completed by field agents?
+    option_a: {entity: "repair job / order", pod: adsc}
+    option_b: {entity: "vehicle pickup or drop task", pod: fleetops_fia}
+
+  - description: "TAT in RSA context vs TAT in ServiceOS context"
+    disambiguation_question: >
+      Are you asking about RSA roadside assistance task TAT (towing, jump start)
+      or ServiceOS field engineer task TAT (vehicle pickup/drop)?
+    option_a: {entity: "RSA dispatch TAT", pod: fleetops_fora}
+    option_b: {entity: "ServiceOS field task TAT", pod: fleetops_fia}
+
+  - description: "Task completion in RSA vs ServiceOS"
+    disambiguation_question: >
+      Are you asking about RSA roadside assistance tasks (towing, flat tyre, custody)
+      or ServiceOS field engineer tasks (vehicle pickup, drop, workshop jobs)?
+    option_a: {entity: "RSA task completion", pod: fleetops_fora}
+    option_b: {entity: "ServiceOS task completion", pod: fleetops_fia}
+
+  - description: "Escalation vs complaints vs NPS verbatim"
+    disambiguation_question: >
+      Are you asking about formal escalation tickets raised by customers,
+      or NPS verbatim feedback themes from workshop customers?
+    option_a: {entity: "escalation ticket", pod: escalation}
+    option_b: {entity: "NPS feedback theme", pod: adsc}
+
+cross_pod_questions:
+  description: >
+    When a question cannot be answered from a single table — comparing metrics
+    across pods, asking for a business summary, or asking about a concept that
+    spans multiple pods — route to the orchestrator first.
+  route_to: orchestrator
+  skill: orchestrator
+  examples:
+    - "How did Acko perform in August overall?"
+    - "Compare NPS across ADSC and escalation"
+    - "Which pod has the most volume?"
+    - "Total orders across all business lines?"

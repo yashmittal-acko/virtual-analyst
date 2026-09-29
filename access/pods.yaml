@@ -1,0 +1,145 @@
+version: 1
+description: >
+  Least-privilege access config for Virtual Analyst pods.
+  Each pod's skill may only query the datasets listed under its bigquery_grants.
+  Cross-pod data access requires explicit approval from both pod owners.
+  All access is read-only. No write permissions granted.
+
+pods:
+  - id: adsc
+    skill_name: ava
+    analyst_owner: yash.mittal@acko.tech
+    manager_approver: yash.mittal@acko.tech
+    bigquery_project: storm-wall-185017
+    bigquery_grants:
+      - adsc_gold
+    pii_controls:
+      - no_raw_phone
+      - no_raw_email
+      - customer_ids_hashed_only
+    ci_required: true
+
+  - id: user_growth
+    skill_name: giva
+    analyst_owner: yash.agnihotri@acko.tech
+    manager_approver: yash.agnihotri@acko.tech
+    bigquery_project: storm-wall-185017
+    bigquery_grants:
+      - central_gold
+    allowed_tables:
+      - central_gold.user_growth_master_agg
+      - central_gold.user_growth_master_base   # reference only, not queried directly
+    pii_controls:
+      - no_raw_phone
+      - no_raw_email
+      - no_user_id_in_output
+    ci_required: true
+
+  - id: retail_travel
+    skill_name: avi
+    analyst_owner: parth.trivedi@acko.tech
+    manager_approver: parth.trivedi@acko.tech
+    bigquery_project: storm-wall-185017
+    bigquery_grants:
+      - retail_travel_gold
+      - DataMigrator         # for jarvis_claim + jarvis_payment
+      - AnalyticsCommon      # for International_Travel_Insured_Level_v1
+    pii_controls:
+      - no_raw_phone
+      - no_raw_email
+      - no_insured_pii_without_approval
+    ci_required: true
+
+  - id: escalation
+    skill_name: ace
+    analyst_owner: anurag.gupta1@acko.tech
+    manager_approver: anurag.gupta1@acko.tech
+    bigquery_project: storm-wall-185017
+    bigquery_grants:
+      - cs_gold
+    allowed_tables:
+      - cs_gold.datamart_escalation_enriched
+      - cs_gold.datamart_escalation
+      - cs_gold.fact_policy
+      - cs_gold.fact_policy_active_month
+      - cs_gold.fact_policy_active_week
+      - cs_gold.fact_policy_active_quarter
+      - cs_gold.fact_claim_month
+      - cs_gold.fact_claim_week
+      - cs_gold.fact_claim_quarter
+      - cs_gold.fact_claim_fraud_status
+      - cs_gold.fact_auto_claims
+      - cs_gold.fact_embedded_claims
+      - cs_gold.fact_health_claims
+      - cs_gold.ticket_timeline_json
+    pii_controls:
+      - no_raw_phone
+      - no_raw_email
+      - ticket_ids_only_for_individual_lookups
+    ci_required: true
+
+  - id: fleetops_fia
+    skill_name: fia
+    analyst_owner: anupam.singh@acko.tech
+    manager_approver: anupam.singh@acko.tech
+    bigquery_project: storm-wall-185017
+    bigquery_grants:
+      - fleetops_gold
+      - serviceos_upbhokta_db_silver
+      - karya_serviceos_db_silver
+    allowed_tables:
+      - fleetops_gold.datamart_fops_360
+      - fleetops_gold.datamart_fops_agents
+      - fleetops_gold.datamart_fops_slot_availability_customer_day
+      - fleetops_gold.datamart_serviceos_promise_fe_metrics_tableau
+      - serviceos_upbhokta_db_silver.serviceos_user
+      - serviceos_upbhokta_db_silver.serviceos_user_work_profile
+      - serviceos_upbhokta_db_silver.serviceos_user_skill_map
+      - serviceos_upbhokta_db_silver.serviceos_user_location_map
+      - karya_serviceos_db_silver.serviceos_detection_signal
+    pii_controls:
+      - no_raw_phone_number
+      - use_customer_phone_hash
+    ci_required: true
+
+  - id: fleetops_fora
+    skill_name: fora
+    analyst_owner: anupam.singh@acko.tech
+    manager_approver: anupam.singh@acko.tech
+    bigquery_project: storm-wall-185017
+    bigquery_grants:
+      - fleetops_gold
+    allowed_tables:
+      - fleetops_gold.datamart_rsa_crm_report
+    pii_controls:
+      - no_raw_phone_column
+      - use_phone_hashed_only
+    ci_required: true
+
+
+  - id: orchestrator
+    skill_name: orchestrator
+    analyst_owner: yash.mittal@acko.tech
+    manager_approver: yash.mittal@acko.tech
+    bigquery_project: none
+    bigquery_grants: []
+    description: >
+      Cross-pod orchestrator. Does not query BigQuery directly.
+      Delegates to individual pod analysts. Reads registry files only.
+    pii_controls:
+      - inherits from delegated pod
+    ci_required: true
+
+cross_pod_access:
+  - description: "ACE may join cs_gold.datamart_escalation_enriched to fact_claim_month for normalized escalation rates. No other cross-pod joins permitted."
+    source_pod: escalation
+    target_pod: escalation      # both within cs_gold
+    tables: [cs_gold.fact_claim_month]
+    approved_by: anurag.gupta1@acko.tech
+
+enforcement:
+  ci_gate: true
+  pr_approval_required: true
+  auto_merge: false
+  schema_validation: true
+  pii_scan: true

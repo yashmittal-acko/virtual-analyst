@@ -1,0 +1,58 @@
+version: 1
+pod: retail_travel
+analyst: parth.trivedi@acko.tech
+description: Golden-answer evals for AVI (Retail Travel Virtual Analyst). Run on every PR touching SKILL.md or metrics.csv.
+
+evals:
+  - id: avi_001
+    question: "How many policies were sold in August 2026?"
+    period: "2026-08-01"
+    date_field: purchase_date
+    expected_value: 4333
+    tolerance_pct: 1
+    status: confirmed
+    sql: "COUNT(DISTINCT policyid) FROM retail_travel_gold.datamart_retail_travel_policy_dashboard WHERE purchase_date BETWEEN '2026-08-01' AND '2026-08-31'. All policy_status values included by default."
+
+  - id: avi_002
+    question: "What was the GWP for August 2026?"
+    period: "2026-08-01"
+    date_field: purchase_date
+    expected_value: 8327524
+    tolerance_pct: 1
+    status: confirmed
+    sql: "SUM(policy_gwp_1) WHERE purchase_date BETWEEN '2026-08-01' AND '2026-08-31'. Raw value: 8327523.82."
+    notes: "Round to nearest integer for display. All policy statuses included."
+
+  - id: avi_003
+    question: "What is the Q2S conversion for August 2026 (non-attributed)?"
+    period: "2026-08-01"
+    attribution: non-attributed
+    expected_value:
+      quotes: 15109
+      sales: 4322
+      q2s_pct: 28.6
+    tolerance_pct: 2
+    status: confirmed
+    sql: "SUM(sales_flag)/SUM(quote_flag) FROM datamart_retail_travel_l0_funnel_dashboard WHERE date BETWEEN '2026-08-01' AND '2026-08-31'. Non-attributed flags."
+
+  - id: avi_004
+    question: "What is the V2S conversion for August 2026 using the 5-day attribution window?"
+    period: "2026-08-01"
+    attribution: attributed
+    expected_value:
+      sales_attr: 4322
+      visits_attr: 602506
+      v2s_pct: 0.7
+    tolerance_pct: 2
+    status: confirmed
+    sql: "SUM(attr_sale_flag)/SUM(attr_visit_flag). Attributed flags. Note: attr sales = non-attr sales (4322) — attribution shifts the attribution, not the sales count."
+    notes: "Attributed V2S is very low (0.7%) because visit base includes all category visitors."
+
+  - id: avi_005
+    question: "What is the ATS (average ticket size) for August 2026?"
+    period: "2026-08-01"
+    date_field: purchase_date
+    expected_value: 1922
+    tolerance_pct: 2
+    status: confirmed
+    sql: "SAFE_DIVIDE(SUM(policy_gwp_1), COUNT(DISTINCT policyid)) = 8327524 / 4333 = 1922."

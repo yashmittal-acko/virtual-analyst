@@ -1,0 +1,18 @@
+metric_name,display_name,table,grain,description,metric_status,owner_contact
+orders,Orders,storm-wall-185017.adsc_gold.fact_adsc_orders,order,Count of all ADSC orders. PK is id not order_id. Use COUNT(DISTINCT id). Date column: created_date.,active,yash.mittal@acko.tech
+valid_orders,Valid Orders,storm-wall-185017.adsc_gold.fact_adsc_orders,order,Valid = status <> CANCELLED (UPPER TRIM). No payment_status or job_status columns exist — status is the only filter. Aug 2026: 2366.,active,yash.mittal@acko.tech
+appointment_to_order_conversion,Appt-to-Order Conversion %,storm-wall-185017.adsc_gold.fact_adsc_orders,order,valid_orders / appointments. Measures how many booked appointments turn into completed orders.,active,yash.mittal@acko.tech
+nps_score,NPS Score,storm-wall-185017.adsc_gold.fact_adsc_nps,response,Net Promoter Score: (Promoters - Detractors) / total responses * 100. Date basis: fact_adsc_nps.created_date (not payment_date — no payment join needed). Aug 2026: 34.8 (767 responses).,active,yash.mittal@acko.tech
+nps_l0_theme,NPS L0 Theme Distribution,storm-wall-185017.adsc_gold.fact_adsc_nps,response,Top-level NPS verbatim theme classification (L0). Source: ABSA.,active,yash.mittal@acko.tech
+nps_l1_theme,NPS L1 Theme Distribution,storm-wall-185017.adsc_gold.fact_adsc_nps,response,Second-level NPS verbatim theme classification (L1). Source: ABSA.,active,yash.mittal@acko.tech
+csat_score,CSAT Score,storm-wall-185017.adsc_gold.fact_adsc_csat,response,Customer satisfaction score average. Scale 1-5.,active,yash.mittal@acko.tech
+repeat_rate_m6,M6 Repeat Rate,storm-wall-185017.adsc_gold.fact_adsc_orders,customer-cohort,% of customers who had a second valid order within 6 months of their first.,active,yash.mittal@acko.tech
+repeat_rate_m9,M9 Repeat Rate,storm-wall-185017.adsc_gold.fact_adsc_orders,customer-cohort,% of customers who had a second valid order within 9 months of their first.,active,yash.mittal@acko.tech
+repeat_rate_m12,M12 Repeat Rate,storm-wall-185017.adsc_gold.fact_adsc_orders,customer-cohort,% of customers who had a second valid order within 12 months of their first.,active,yash.mittal@acko.tech
+new_vs_repeat_users,New vs Repeat User Mix,storm-wall-185017.adsc_gold.fact_adsc_orders,order,New = first-ever ADSC order; Repeat = has had a prior valid order. Split of order volume.,active,yash.mittal@acko.tech
+revenue,Revenue (GWP),storm-wall-185017.adsc_gold.fact_adsc_orders,order,SUM(order_value) for valid orders. Includes repair + parts.,active,yash.mittal@acko.tech
+repair_tat_p50,Repair TAT P50 (hrs),storm-wall-185017.adsc_gold.fact_adsc_orders,order,Median hours from vehicle drop-off to delivery. Excludes cancelled/open orders.,active,yash.mittal@acko.tech
+repair_tat_p90,Repair TAT P90 (hrs),storm-wall-185017.adsc_gold.fact_adsc_orders,order,90th percentile hours from vehicle drop-off to delivery.,active,yash.mittal@acko.tech
+demand_aware,Demand — Aware,storm-wall-185017.adsc_gold.fact_adsc_demand_funnel,user,Users who opened the ADSC section of the app at least once in the period.,active,yash.mittal@acko.tech
+demand_appointment,Demand — Appointment,storm-wall-185017.adsc_gold.fact_adsc_demand_funnel,user,Users who completed the appointment booking flow.,active,yash.mittal@acko.tech
+serviceable_leads,Serviceable Leads,storm-wall-185017.adsc_gold.fact_adsc_demand_funnel,user,Appointment requests from pincodes with active ADSC coverage.,active,yash.mittal@acko.tech

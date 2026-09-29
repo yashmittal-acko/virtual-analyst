@@ -1,0 +1,50 @@
+version: 1
+pod: user_growth
+analyst: yash.agnihotri@acko.tech
+description: Golden-answer evals for GIVA (User Growth Intelligence Analyst). Run on every PR touching SKILL.md or metrics.csv.
+
+evals:
+  - id: giva_001
+    question: "How many reachable users did we have in August 2026?"
+    period: "2026-08-01"
+    expected_value: 7733805
+    tolerance_pct: 1
+    status: confirmed
+    sql: "SUM(user_count) WHERE is_reachable=1 AND month='2026-08-01' FROM central_gold.user_growth_master_agg"
+
+  - id: giva_002
+    question: "What was the MAU in August 2026?"
+    period: "2026-08-01"
+    expected_value: 2465813
+    tolerance_pct: 1
+    status: confirmed
+    sql: "SUM(user_count) WHERE app_open_flag=1 AND month='2026-08-01'"
+    notes: "Should equal New+Returning+Resurrected sum. MAU / Reachable = 31.9%."
+
+  - id: giva_003
+    question: "Out of the health customer base, what is the life cross-sell penetration for August 2026?"
+    period: "2026-08-01"
+    expected_value:
+      health_base: 89641
+      health_and_life: 2318
+      life_xsell_pct: 2.59
+    tolerance_pct: 2
+    status: confirmed
+    sql: "SUM(user_count) WHERE health_ever_customer=1 AND life_ever_customer=1 / SUM(user_count) WHERE health_ever_customer=1"
+
+  - id: giva_004
+    question: "How many reachable car-only customers (no bike policy) are there in August 2026?"
+    period: "2026-08-01"
+    expected_value: 733196
+    tolerance_pct: 1
+    status: confirmed
+    sql: "SUM(user_count) WHERE car_ever_customer=1 AND bike_ever_customer=0 AND is_reachable=1 AND month='2026-08-01'"
+
+  - id: giva_005
+    question: "How many users did vas_challan_success in August 2026?"
+    period: "2026-08-01"
+    expected_value: 976031
+    tolerance_pct: 2
+    status: confirmed
+    sql: "SUM(user_count) WHERE event_metrics LIKE '%vas_challan_success%' AND month='2026-08-01'"
+    notes: "LIKE operator confirmed correct — event_metrics is comma-joined string."
